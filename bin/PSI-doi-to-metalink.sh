@@ -60,15 +60,19 @@ echo "Processing $doi"
 
 debug Resolving landing page...
 landing_page=$(curl -s -D- $doi | sed -n 's/^location: //ip' | sed 's/\r//')
+debug "    --> $landing_page"
 
 debug Building JSON info URL...
 info_json=https://doi.psi.ch/oaipmh/Publication/detail/$(echo ${landing_page#https://doi.psi.ch/detail/} | sed 's~/~%252F~')
+debug "    --> $info_json"
 
 debug Extracting download page URL...
 download_page=$(curl -s $info_json | jq -r .downloadLink)
+debug "    --> $download_page"
 
 debug Identifying base directory...
 base_dir=$(curl -s -L $download_page | sed -n 's/.*wget[^>]*> *\([^ ]*\).*/\1/p')
+debug "    --> $base_dir"
 
 inventory=${base_dir}/__checksum_filename_0__
 debug "Inventory URL: $inventory"
