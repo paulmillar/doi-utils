@@ -67,7 +67,10 @@ class FileWalker:
 
     def printTree(self):
         tree = ET.ElementTree(self.root)
-        tree.write("metalink.xml", xml_declaration=True)
+        filename = self.start_path[1:].replace("/","_") + ".meta4"
+        tree.write(filename, xml_declaration=True)
+        print("Wrote dataset metalink: %s" % filename)
+
 
 def main(argv):
     parser = argparse.ArgumentParser(description='Walk a WebDAV server, building metalink file.')
