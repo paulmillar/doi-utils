@@ -55,7 +55,7 @@ case $1 in
 	;;
 esac
 
-output=metalink-DOI-$(echo ${doi#https://doi.org/} | sed 's%/%-%g').xml
+output=$(echo ${doi#https://doi.org/} | sed 's%/%-%g').meta4
 echo "Processing $doi"
 
 debug Resolving landing page...
