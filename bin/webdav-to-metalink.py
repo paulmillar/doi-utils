@@ -36,6 +36,7 @@ class FileWalker:
         self.root = ET.Element("{%s}metalink" % self.xml_namespace)
         self.client = self._build_client(parsed_url)
         self.output = args.output [0] if args.output else (self.start_path[1:].replace("/","_") + ".meta4")
+        self.location = args.location [0] if args.location else None
 
     def _build_client(self, parsed_url):
         options = {}
@@ -84,7 +85,11 @@ class FileWalker:
         rel_path = item["path"][1+len(self.start_path):]
         file = ET.SubElement(self.root, "file", name=rel_path);
 
-        ET.SubElement(file, "url", location="de",priority="1").text = url
+        urlElement = ET.SubElement(file, "url", priority="1")
+        urlElement.text = url
+        if self.location:
+            urlElement.set("location", self.location)
+
         ET.SubElement(file, "size").text = item["size"]
         self._addDcacheChecksums(item, file)
 
@@ -109,6 +114,9 @@ def main(argv):
 
     parser.add_argument('-o', '--output', nargs=1, metavar='FILE',
                         help="the name of the filename, which should have the '.meta4' extension.  If not specified then an auto-generated filename is used.")
+
+    parser.add_argument('--location', nargs=1, metavar='COUNTRY',
+                        help="The country within which the WebDAV server resides.  COUNTRY is an ISO 3166-1 2-alpha code.")
 
     args = parser.parse_args()
     walker = FileWalker(args)
