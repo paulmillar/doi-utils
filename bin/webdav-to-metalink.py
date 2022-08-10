@@ -23,8 +23,8 @@ class FileWalker:
 
     xml_namespace="urn:ietf:params:xml:ns:metalink"
 
-    def __init__(self, url):
-        parsed_url = urlparse(url)
+    def __init__(self, args):
+        parsed_url = urlparse(args.url)
         if parsed_url.scheme == "davs":
             parsed_url.scheme = "https"
         if parsed_url.scheme != "https":
@@ -35,6 +35,7 @@ class FileWalker:
         ET.register_namespace('', self.xml_namespace)
         self.root = ET.Element("{%s}metalink" % self.xml_namespace)
         self.client = self._build_client(parsed_url)
+        self.output = args.output [0] if args.output else (self.start_path[1:].replace("/","_") + ".meta4")
 
     def _build_client(self, parsed_url):
         options = {}
@@ -98,16 +99,19 @@ class FileWalker:
 
     def printTree(self):
         tree = ET.ElementTree(self.root)
-        filename = self.start_path[1:].replace("/","_") + ".meta4"
-        tree.write(filename, xml_declaration=True)
-        print("Wrote dataset metalink: %s" % filename)
+        tree.write(self.output, xml_declaration=True)
+        print("Wrote dataset metalink: %s" % self.output)
 
 
 def main(argv):
     parser = argparse.ArgumentParser(description='Walk a WebDAV server, building metalink file.')
     parser.add_argument('url', metavar='URL', help='the URL of the WebDAV server.  This URL may contain username and password information, which will be copied into individual file URLs.')
+
+    parser.add_argument('-o', '--output', nargs=1, metavar='FILE',
+                        help="the name of the filename, which should have the '.meta4' extension.  If not specified then an auto-generated filename is used.")
+
     args = parser.parse_args()
-    walker = FileWalker(args.url)
+    walker = FileWalker(args)
     walker.start()
     walker.printTree()
 
