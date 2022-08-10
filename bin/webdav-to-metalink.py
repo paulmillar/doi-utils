@@ -16,7 +16,7 @@ class FileWalker:
     of the available files.
     """
 
-    checksums_qname = {
+    dcache_checksums_qname = {
         'namespace': "http://www.dcache.org/2013/webdav",
         'name': "Checksums",
     }
@@ -67,6 +67,15 @@ class FileWalker:
     def start(self):
         self._processDir(self.start_path)
 
+    def _addDcacheChecksums(self, item, file):
+        checksums = self.client.get_property(item["path"], self.dcache_checksums_qname);
+        if checksums:
+            for checksum in checksums.split(","):
+                (alg,value) = checksum.split("=", 1);
+                if alg == "md5":
+                    value = base64.b64decode(value).hex()
+                ET.SubElement(file, "hash", type=alg).text = value
+
     def _processFile(self, item):
         path=item["path"]
 
@@ -75,13 +84,8 @@ class FileWalker:
         file = ET.SubElement(self.root, "file", name=rel_path);
 
         ET.SubElement(file, "url", location="de",priority="1").text = url
-        checksums = self.client.get_property(path, self.checksums_qname);
         ET.SubElement(file, "size").text = item["size"]
-        for checksum in checksums.split(","):
-            (alg,value) = checksum.split("=", 1);
-            if alg == "md5":
-                value = base64.b64decode(value).hex()
-            ET.SubElement(file, "hash", type=alg).text = value
+        self._addDcacheChecksums(item, file)
 
     def _processDir(self, dir):
         print("Processing dir " + dir)
