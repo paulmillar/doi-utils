@@ -59,8 +59,17 @@ def main():
         info = file["Datafile"]
         if info ["fileSize"] == 0 and options.suppress_zero:
             continue
-        
-        url="https://icatplus.esrf.fr/catalogue/%s/data/download?datafileIds=%s" % (sessionId, info ["id"])
+
+        #  The following URL is presented in the web pages:
+        #
+        #    "https://icatplus.esrf.fr/catalogue/%s/data/download?datafileIds=%s" % (sessionId, info ["id"])
+        #
+        #  The "icatplus.esrf.fr" server redirects to "ids.esrf.fr".
+        #  While valid HTTP, this seems to cause problems for some
+        #  clients.  Therefore, we avoid this redirection by using the
+        #  "ids.esrf.fr" URL directly.
+        #
+        url="https://ids.esrf.fr/ids/getData?sessionId=%s&datafileIds=%s" % (sessionId, info ["id"])
         file = ET.SubElement(root, "file", name=info["name"])
         ET.SubElement(file, "size").text = str(info ["fileSize"])
         ET.SubElement(file, "url", location="fr",priority="1").text = url
