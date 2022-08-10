@@ -25,17 +25,44 @@ class FileWalker:
 
     def __init__(self, url):
         parsed_url = urlparse(url)
-        scheme = "https" if parsed_url.scheme == "davs" else parsed_url.scheme
-        if scheme != "https":
-            raise Exception('Bad scheme \"%s\" (perhaps "https"?)' % scheme)
+        if parsed_url.scheme == "davs":
+            parsed_url.scheme = "https"
+        if parsed_url.scheme != "https":
+            raise Exception('Bad scheme \"%s\" (perhaps "https"?)' % parsed_url.scheme)
+
         self.start_path = parsed_url.path
-        self.prefix = scheme + "://" + parsed_url.netloc
+        self.prefix = parsed_url.scheme + "://" + parsed_url.netloc
         ET.register_namespace('', self.xml_namespace)
         self.root = ET.Element("{%s}metalink" % self.xml_namespace)
-        options = {
-            'webdav_hostname': self.prefix,
-        }
-        self.client = Client(options)
+        self.client = self._build_client(parsed_url)
+
+    def _build_client(self, parsed_url):
+        options = {}
+        username_without_password = None
+        userinfo = parsed_url.netloc.split("@", 1)
+        if len(userinfo) == 1:
+            options["webdav_hostname"] = parsed_url.scheme + "://" + parsed_url.netloc
+        else:
+            options["webdav_hostname"] = parsed_url.scheme + "://" + userinfo[1]
+            credential = userinfo[0].split(":", 1)
+            if len(credential) == 1:
+                raise Exception('Missing \':\' in URL\'s userinfo \"%s\"' % userinfo[0])
+            if not credential [1]:
+                username_without_password = credential [0]
+            else:
+                options["webdav_login"] = credential [0]
+                options["webdav_password"] = credential [1]
+
+        client = Client(options)
+
+        # Work around a limitation of the webdav client
+        #
+        # https://github.com/ezhov-evgeny/webdav-client-python-3/issues/123
+        #
+        if username_without_password:
+            client.session.auth = (username_without_password, "")
+
+        return client
 
     def start(self):
         self._processDir(self.start_path)
@@ -74,7 +101,7 @@ class FileWalker:
 
 def main(argv):
     parser = argparse.ArgumentParser(description='Walk a WebDAV server, building metalink file.')
-    parser.add_argument('url', metavar='URL', help='the URL of the WebDAV server')
+    parser.add_argument('url', metavar='URL', help='the URL of the WebDAV server.  This URL may contain username and password information, which will be copied into individual file URLs.')
     args = parser.parse_args()
     walker = FileWalker(args.url)
     walker.start()
