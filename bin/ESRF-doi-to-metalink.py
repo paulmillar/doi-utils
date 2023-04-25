@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-#  Generate metalink files for the ESRF datasets.
+#  Generate a metalink file for an ESRF dataset.
 #
 #  This script was updated from original one to generate metalink files for the multiple ESRF datasets
 #  by watching how the ESRF web-browser/
@@ -19,7 +19,9 @@ from optparse import OptionParser
 def main():
     parser = OptionParser("usage: %prog [options] DOI")
     parser.add_option("-z", action="store_true", dest="suppress_zero", default=False,
-                  help="don't include zero-length files.")    
+                  help="don't include zero-length files.")
+    parser.add_option("-f", action="store_true", dest="follow_redirection", default=False,
+                  help="resolve download URLs by following any redirections.")
     (options, args) = parser.parse_args()
     if len(args) != 1:
         parser.error("incorrect number of arguments")
@@ -67,19 +69,16 @@ def main():
             if info ["fileSize"] == 0 and options.suppress_zero:
                 continue
 
-            #  The following URL is presented in the web pages:
-            #
-            #    "https://icatplus.esrf.fr/catalogue/%s/data/download?datafileIds=%s" % (sessionId, info ["id"])
-            #
-            #  The "icatplus.esrf.fr" server redirects to "ids.esrf.fr".
-            #  While valid HTTP, this seems to cause problems for some
-            #  clients.  Therefore, we avoid this redirection by using the
-            #  "ids.esrf.fr" URL directly.
-            #
-            url="https://ids.esrf.fr/ids/getData?sessionId=%s&datafileIds=%s" % (sessionId, info ["id"])
+            download_url="https://icatplus.esrf.fr/catalogue/%s/data/download?datafileIds=%s" % (sessionId, info ["id"])
+
+            #  If request, resolve any redirections and record the resulting URL.
+            if options.follow_redirection:
+                r = requests.head(download_url, allow_redirects=True)
+                download_url = r.url
+
             file = ET.SubElement(root, "file", name=info["name"])
             ET.SubElement(file, "size").text = str(info ["fileSize"])
-            ET.SubElement(file, "url", location="fr",priority="1").text = url
+            ET.SubElement(file, "url", location="fr",priority="1").text = download_url
             ET.SubElement(file, "description").text = info ["location"]
 
         tree = ET.ElementTree(root)
