@@ -16,6 +16,11 @@ import json
 import xml.etree.cElementTree as ET
 from optparse import OptionParser
 
+def safe_filename(f):
+    while bool(f) and f[0] == '/':
+        f = f[1:]
+    return f
+
 def main():
     parser = OptionParser("usage: %prog [options] DOI")
     parser.add_option("-z", action="store_true", dest="suppress_zero", default=False,
@@ -76,7 +81,7 @@ def main():
                 r = requests.head(download_url, allow_redirects=True)
                 download_url = r.url
 
-            file = ET.SubElement(root, "file", name=info["name"])
+            file = ET.SubElement(root, "file", name=safe_filename(info["name"]))
             ET.SubElement(file, "size").text = str(info ["fileSize"])
             ET.SubElement(file, "url", location="fr",priority="1").text = download_url
             ET.SubElement(file, "description").text = info ["location"]
