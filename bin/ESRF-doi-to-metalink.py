@@ -25,6 +25,8 @@ def main():
     parser = OptionParser("usage: %prog [options] DOI")
     parser.add_option("-z", action="store_true", dest="suppress_zero", default=False,
                   help="don't include zero-length files.")
+    parser.add_option("-s", action="store_true", dest="suppress_size", default=False,
+                  help="don't include file size.  See https://github.com/aria2/aria2/issues/2051")
     parser.add_option("-f", action="store_true", dest="follow_redirection", default=False,
                   help="resolve download URLs by following any redirections.")
     (options, args) = parser.parse_args()
@@ -82,7 +84,8 @@ def main():
                 download_url = r.url
 
             file = ET.SubElement(root, "file", name=safe_filename(info["name"]))
-            ET.SubElement(file, "size").text = str(info ["fileSize"])
+            if not options.suppress_size:
+                ET.SubElement(file, "size").text = str(info ["fileSize"])
             ET.SubElement(file, "url", location="fr",priority="1").text = download_url
             ET.SubElement(file, "description").text = info ["location"]
 
