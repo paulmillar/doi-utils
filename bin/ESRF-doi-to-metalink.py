@@ -74,7 +74,7 @@ def main():
             if info ["fileSize"] == 0 and options.suppress_zero:
                 continue
 
-            download_url="https://icatplus.esrf.fr/catalogue/%s/data/download?datafileIds=%s" % (sessionId, info ["id"])
+            download_url="https://icatplus.esrf.fr/ids/%s/data/download?datafileIds=%s" % (sessionId, info ["id"])
 
             #  If request, resolve any redirections and record the resulting URL.
             if options.follow_redirection:
