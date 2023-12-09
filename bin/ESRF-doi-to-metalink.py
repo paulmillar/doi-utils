@@ -89,6 +89,8 @@ def main():
             ET.SubElement(file, "url", location="fr",priority="1").text = download_url
             ET.SubElement(file, "description").text = info ["location"]
 
+        ET.SubElement(root, "origin").text = "doi:%s" % (doi)
+
         tree = ET.ElementTree(root)
         output = "%s.meta4" % dataset_name
         tree.write(output, xml_declaration=True)
