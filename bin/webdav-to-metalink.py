@@ -10,18 +10,16 @@ import sys
 import argparse
 from urllib.parse import urlparse
 
-class FileWalker:
-    """ A class that walks a WebDAV endpoint, starting at a
-    specific directory.  It building a metalink description
-    of the available files.
+class AbstractFileWalker:
+    """ An abstract class that supports walks a WebDAV
+    endpoint, starting at a specific directory.  It is
+    intended to allow specialisation.
     """
 
     dcache_checksums_qname = {
         'namespace': "http://www.dcache.org/2013/webdav",
         'name': "Checksums",
     }
-
-    xml_namespace="urn:ietf:params:xml:ns:metalink"
 
     def __init__(self, args):
         parsed_url = urlparse(args.url)
@@ -32,11 +30,7 @@ class FileWalker:
 
         self.start_path = parsed_url.path
         self.prefix = parsed_url.scheme + "://" + parsed_url.netloc
-        ET.register_namespace('', self.xml_namespace)
-        self.root = ET.Element("{%s}metalink" % self.xml_namespace)
         self.client = self._build_client(parsed_url)
-        self.output = args.output [0] if args.output else (self.start_path[1:].replace("/","_") + ".meta4")
-        self.location = args.location [0] if args.location else None
 
     def _build_client(self, parsed_url):
         options = {}
@@ -79,28 +73,66 @@ class FileWalker:
                 ET.SubElement(file, "hash", type=alg).text = value
 
     def _processFile(self, item):
-        path=item["path"]
+        abs_path = item["path"]
+        url = self.prefix + abs_path
+        rel_path = abs_path[1+len(self.start_path):]
+        size = item["size"]
+        checksums = self._buildChecksums(abs_path)
+        self.acceptFile(url, abs_path, rel_path, size, checksums)
 
-        url = self.prefix + path
-        rel_path = item["path"][1+len(self.start_path):]
-        file = ET.SubElement(self.root, "file", name=rel_path);
+    def _buildChecksums(self, path):
+        property_checksums = self.client.get_property(path, self.dcache_checksums_qname);
+        checksums = {}
+        if property_checksums:
+            for checksum in property_checksums.split(","):
+                (alg,value) = checksum.split("=", 1);
+                checksums[alg] = base64.b64decode(value).hex()
+        return checksums
 
-        urlElement = ET.SubElement(file, "url", priority="1")
-        urlElement.text = url
-        if self.location:
-            urlElement.set("location", self.location)
-
-        ET.SubElement(file, "size").text = item["size"]
-        self._addDcacheChecksums(item, file)
 
     def _processDir(self, dir):
         print("Processing dir " + dir)
+        self.acceptDirectory(dir)
         for item in self.client.list(dir, get_info=True):
             isDir = item["isdir"]
             if isDir:
                 self._processDir(item["path"])
             else:
                 self._processFile(item)
+
+    def acceptFile(self, url, abs_path, rel_path, size, checksums):
+        pass
+
+    def acceptDirectory(self, abs_path):
+        pass
+
+
+class MetalinkFileWalker(AbstractFileWalker):
+    """ A class that walks a WebDAV endpoint, starting at a
+    specific directory.  It building a metalink description
+    of the available files.
+    """
+
+    xml_namespace="urn:ietf:params:xml:ns:metalink"
+
+    def __init__(self, args):
+        super().__init__(args)
+        ET.register_namespace('', self.xml_namespace)
+        self.root = ET.Element("{%s}metalink" % self.xml_namespace)
+        self.output = args.output [0] if args.output else (self.start_path[1:].replace("/","_") + ".meta4")
+        self.location = args.location [0] if args.location else None
+
+    def acceptFile(self, url, abs_path, rel_path, size, checksums):
+        file = ET.SubElement(self.root, "file", name=rel_path)
+
+        urlElement = ET.SubElement(file, "url", priority="1")
+        urlElement.text = url
+        if self.location:
+            urlElement.set("location", self.location)
+
+        ET.SubElement(file, "size").text = size
+        for alg, value in checksums.items():
+            ET.SubElement(file, "hash", type=alg).text = value
 
     def printTree(self):
         tree = ET.ElementTree(self.root)
@@ -119,7 +151,7 @@ def main(argv):
                         help="The country within which the WebDAV server resides.  COUNTRY is an ISO 3166-1 2-alpha code.")
 
     args = parser.parse_args()
-    walker = FileWalker(args)
+    walker = MetalinkFileWalker(args)
     walker.start()
     walker.printTree()
 
